@@ -63,6 +63,18 @@ async def remove_old_prompt(bot: Bot, chat_id: int, user_id: int) -> None:
         pass
 
 
+async def delete_prompt_later(bot: Bot, chat_id: int, user_id: int, message_id: int) -> None:
+    await asyncio.sleep(15)
+    key = (chat_id, user_id)
+    if last_prompts.get(key) != message_id:
+        return
+    last_prompts.pop(key, None)
+    try:
+        await bot.delete_message(chat_id, message_id)
+    except (TelegramBadRequest, TelegramForbiddenError):
+        pass
+
+
 async def send_subscription_prompt(message: Message, bot: Bot) -> None:
     if not message.from_user:
         return
@@ -72,6 +84,9 @@ async def send_subscription_prompt(message: Message, bot: Bot) -> None:
         reply_markup=subscription_keyboard(),
     )
     last_prompts[(message.chat.id, message.from_user.id)] = prompt.message_id
+    asyncio.create_task(
+        delete_prompt_later(bot, message.chat.id, message.from_user.id, prompt.message_id)
+    )
 
 
 @router.message(F.chat.id == GROUP_ID)
